@@ -30,27 +30,24 @@ http:
             - SecResponseBodyAccess Off
             - SecRequestBodyLimit 52428800
 
-            # CRS Configuration - Allowed Content Types
+            # Load OWASP Core Rule Set
+            - Include @coraza.conf-recommended
+            - Include @crs-setup.conf.example
+
+            # CRS Configuration - Set blocking paranoia level and enable blocking mode
+            - |
+              SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.blocking_paranoia_level=2,setvar:tx.detection_paranoia_level=2,setvar:tx.anomaly_score_blocking=on"
+
+            # CRS Configuration - Allowed Content Types (must be set before loading CRS rules)
             - |
               SecAction "id:900220,phase:1,nolog,pass,t:none,setvar:'tx.allowed_request_content_type=|application/x-www-form-urlencoded| |multipart/form-data| |multipart/related| |application/json| |application/octet-stream|'"
 
-            # CRS Configuration - Restricted Extensions
+            # CRS Configuration - Restricted Extensions (must be set before loading CRS rules)
             - |
-              SecAction "id:900240,phase:1,nolog,pass,t:none,setvar:'tx.restricted_extensions=.asa/ .asax/ .ascx/ .axd/ .backup/ .bak/ .bac/ .bat/ .cdx/ .cer/ .cfg/ .cmd/ .com/ .config/ .conf/ .cs/ .csproj/ .csr/ .dat/ .db/ .dbf/ .dll/ .dos/ .htr/ .htw/ .ida/ .idc/ .idq/ .inc/ .ini/ .key/ .licx/ .lnk/ .log/ .mdb/ .old/ .pass/ .pdb/ .pol/ .printer/ .pwd/ .rdb/ .resources/ .resx/ .sql/ .swp/ .sys/ .vb/ .vbs/ .vbproj/ .vsdisco/ .webinfo/ .xsd/ .xsx/ .jsp/ .php/ .py/ .yml/ .yaml/ .cfm/ .callAnon/ .html/ .htm/ .txt/ .xml/ .key/. pem/ .ssh/ .nsf/ .rb/ .zip/ .~bk/ .jar/ .tar/'"
+              SecAction "id:900240,phase:1,nolog,pass,t:none,setvar:'tx.restricted_extensions=.asa/ .asax/ .ascx/ .axd/ .backup/ .bak/ .bac/ .bat/ .cdx/ .cer/ .cfg/ .cmd/ .com/ .config/ .conf/ .cs/ .csproj/ .csr/ .dat/ .db/ .dbf/ .dll/ .dos/ .htr/ .htw/ .ida/ .idc/ .idq/ .inc/ .ini/ .key/ .licx/ .lnk/ .log/ .mdb/ .old/ .pass/ .pdb/ .pol/ .printer/ .pwd/ .rdb/ .resources/ .resx/ .sql/ .swp/ .sys/ .vb/ .vbs/ .vbproj/ .vsdisco/ .webinfo/ .xsd/ .xsx/ .jsp/ .php/ .y ml/ .yaml/ .cfm/ .callAnon/ .html/ .htm/ .txt/ .xml/ .key/. pem/ .ssh/ .nsf/ .rb/ .zip/ .~bk/ .jar/ .tar/'"
 
-            # Rule Tuning - Exclude specific fields from certain rules
-            - SecRuleUpdateTargetById 931130 !ARGS:json.consentUrl
-            - SecRuleUpdateTargetById 932190 !ARGS:json.consentUrl
-            - |
-              SecRuleUpdateTargetById 942460 !ARGS:/^json\.documentUris\.\w+\.data$/
-            - SecRuleUpdateTargetById 942200 !REQUEST_COOKIES
-            - SecRuleUpdateTargetById 942200 !REQUEST_COOKIES_NAMES
-            - SecRuleUpdateTargetById 942370 !REQUEST_COOKIES
-            - SecRuleUpdateTargetById 942370 !REQUEST_COOKIES_NAMES
-            - SecRuleUpdateTargetById 942490 !REQUEST_COOKIES
-            - SecRuleUpdateTargetById 942490 !REQUEST_COOKIES_NAMES
-            - SecRuleUpdateTargetById 942260 !REQUEST_COOKIES
-            - SecRuleUpdateTargetById 942260 !REQUEST_COOKIES_NAMES
+            # Load CRS rules (after configuration variables are set)
+            - Include @owasp_crs/*.conf
 
             # ============================================
             # Fidentity-specific Rule Exclusions

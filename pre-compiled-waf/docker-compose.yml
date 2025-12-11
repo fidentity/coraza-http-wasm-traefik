@@ -8,7 +8,8 @@ services:
     command:
       - "--configFile=/etc/traefik/config-static.yaml"
     volumes:
-      - ./:/etc/traefik
+      - ./config-static.yaml:/etc/traefik/config-static.yaml:ro
+      - ./config-dynamic.yaml:/etc/traefik/config-dynamic.yaml:ro
 
   traefik:
     extends: traefik_base
