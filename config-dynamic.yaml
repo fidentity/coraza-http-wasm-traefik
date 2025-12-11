@@ -19,7 +19,157 @@ http:
       plugin:
         coraza:
           directives:
+            # Basic Coraza Configuration
             - SecRuleEngine On
             - SecDebugLog /dev/stdout
-            - SecDebugLogLevel 9
-            - SecRule REQUEST_URI "@streq /admin" "id:101,phase:1,log,deny,status:403"
+            - SecDebugLogLevel 3
+
+            # Audit Log Configuration
+            - SecAuditLog /dev/stdout
+            - SecAuditLogFormat JSON
+            - SecResponseBodyAccess Off
+            - SecRequestBodyLimit 52428800
+
+            # CRS Configuration - Allowed Content Types
+            - |
+              SecAction "id:900220,phase:1,nolog,pass,t:none,setvar:'tx.allowed_request_content_type=|application/x-www-form-urlencoded| |multipart/form-data| |multipart/related| |application/json| |application/octet-stream|'"
+
+            # CRS Configuration - Restricted Extensions
+            - |
+              SecAction "id:900240,phase:1,nolog,pass,t:none,setvar:'tx.restricted_extensions=.asa/ .asax/ .ascx/ .axd/ .backup/ .bak/ .bac/ .bat/ .cdx/ .cer/ .cfg/ .cmd/ .com/ .config/ .conf/ .cs/ .csproj/ .csr/ .dat/ .db/ .dbf/ .dll/ .dos/ .htr/ .htw/ .ida/ .idc/ .idq/ .inc/ .ini/ .key/ .licx/ .lnk/ .log/ .mdb/ .old/ .pass/ .pdb/ .pol/ .printer/ .pwd/ .rdb/ .resources/ .resx/ .sql/ .swp/ .sys/ .vb/ .vbs/ .vbproj/ .vsdisco/ .webinfo/ .xsd/ .xsx/ .jsp/ .php/ .py/ .yml/ .yaml/ .cfm/ .callAnon/ .html/ .htm/ .txt/ .xml/ .key/. pem/ .ssh/ .nsf/ .rb/ .zip/ .~bk/ .jar/ .tar/'"
+
+            # Rule Tuning - Exclude specific fields from certain rules
+            - SecRuleUpdateTargetById 931130 !ARGS:json.consentUrl
+            - SecRuleUpdateTargetById 932190 !ARGS:json.consentUrl
+            - |
+              SecRuleUpdateTargetById 942460 !ARGS:/^json\.documentUris\.\w+\.data$/
+            - SecRuleUpdateTargetById 942200 !REQUEST_COOKIES
+            - SecRuleUpdateTargetById 942200 !REQUEST_COOKIES_NAMES
+            - SecRuleUpdateTargetById 942370 !REQUEST_COOKIES
+            - SecRuleUpdateTargetById 942370 !REQUEST_COOKIES_NAMES
+            - SecRuleUpdateTargetById 942490 !REQUEST_COOKIES
+            - SecRuleUpdateTargetById 942490 !REQUEST_COOKIES_NAMES
+            - SecRuleUpdateTargetById 942260 !REQUEST_COOKIES
+            - SecRuleUpdateTargetById 942260 !REQUEST_COOKIES_NAMES
+
+            # ============================================
+            # Fidentity-specific Rule Exclusions
+            # ============================================
+
+            # Cookie-based exclusions
+            - |
+              SecRule REQUEST_HEADERS:Cookie "@rx .*Optanon.*" "id:20000,phase:1,nolog,pass,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=942420"
+
+            # Referer-based exclusions
+            - |
+              SecRule REQUEST_HEADERS:Referer "@rx .*shkb.*" "id:20001,phase:1,nolog,pass,ctl:ruleRemoveById=920272"
+
+            # User-Agent exclusions
+            - |
+              SecRule REQUEST_HEADERS:UserAgent "@beginsWith Java-http-client" "id:20002,phase:1,nolog,pass,ctl:ruleRemoveById=920300"
+
+            # Content-Type based exclusions
+            - |
+              SecRule REQUEST_HEADERS:Content-Type "@streq application/json" "id:20003,phase:1,nolog,pass,ctl:ruleRemoveById=920273,ctl:ruleRemoveById=920420"
+            - |
+              SecRule REQUEST_HEADERS:Content-Type "@beginsWith text/plain" "id:20004,phase:1,nolog,pass,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110"
+            - |
+              SecRule REQUEST_HEADERS:Content-Type "@rx ^application/(?:octet-stream|wasm)" "id:20005,phase:1,nolog,pass,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110,ctl:requestBodyAccess=Off"
+
+            # API endpoint-specific exclusions
+            - |
+              SecRule REQUEST_URI "@streq /api/v1/app/logger/client-report" "id:20006,phase:1,nolog,pass,ctl:ruleRemoveById=200001,ctl:ruleRemoveById=920273,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942110,ctl:ruleRemoveById=942200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942432,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942490"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/ais-signature" "id:20007,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920420,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app" "id:20008,phase:1,nolog,pass,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=942100,ctl:ruleRemoveById=942440"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/ais-signature" "id:20009,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920170,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=942440"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/analytics/capture-events" "id:20010,phase:1,nolog,pass,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=942431,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/app-config" "id:20011,phase:1,nolog,pass,ctl:ruleRemoveById=920230,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942511,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/capture-log" "id:20012,phase:1,nolog,pass,ctl:ruleRemoveById=200001,ctl:ruleRemoveById=200002,ctl:ruleRemoveById=200007,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=942440"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/logger" "id:20013,phase:1,nolog,pass,ctl:ruleRemoveById=920230,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942450,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942511"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/logger/csp" "id:20014,phase:1,nolog,pass,ctl:ruleRemoveById=931130,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=942420,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942432,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/nfc" "id:20015,phase:1,nolog,pass,ctl:ruleRemoveById=920230,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942450,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942511,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/process" "id:20016,phase:1,nolog,pass,ctl:ruleRemoveById=920230,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942490,ctl:ruleRemoveById=942510,ctl:ruleRemoveById=942511"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/qessignature" "id:20017,phase:1,nolog,pass,ctl:ruleRemoveById=200002,ctl:ruleRemoveById=200007,ctl:ruleRemoveById=920271,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921230,ctl:ruleRemoveById=931130,ctl:ruleRemoveById=932105,ctl:ruleRemoveById=932110,ctl:ruleRemoveById=932140,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=933210,ctl:ruleRemoveById=941130,ctl:ruleRemoveById=941170,ctl:ruleRemoveById=941380,ctl:ruleRemoveById=942110,ctl:ruleRemoveById=942200,ctl:ruleRemoveById=942210,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942390,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942450,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942490,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/quickcheck" "id:20018,phase:1,nolog,pass,ctl:ruleRemoveById=920272,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/simplesign/start" "id:20019,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920450,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=921230,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=950100"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/start-process" "id:20020,phase:1,nolog,pass,ctl:ruleRemoveById=920230,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=920450,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=921230,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=941101,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942511"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/start/start-process" "id:20021,phase:1,nolog,pass,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=942200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942490"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/start/verify-registration-and-start-process" "id:20022,phase:1,nolog,pass,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=942200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942330,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942490"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/test-video" "id:20023,phase:1,t:none,t:lowercase,nolog,pass,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/transfer-link" "id:20024,phase:1,nolog,pass,ctl:ruleRemoveById=942440"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/app/webauthn/registration" "id:20025,phase:1,nolog,pass,ctl:ruleRemoveById=200002,ctl:ruleRemoveById=942430,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/authentication" "id:20026,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920320,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942460"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/authorize" "id:20027,phase:1,nolog,pass,ctl:ruleRemoveById=931130"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/dashboard" "id:20028,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920320,ctl:ruleRemoveById=921230,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942110,ctl:ruleRemoveById=942120,ctl:ruleRemoveById=942130,ctl:ruleRemoveById=942180,ctl:ruleRemoveById=942200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942300,ctl:ruleRemoveById=942330,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942420,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942490"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/dashboard/customer" "id:20029,phase:1,nolog,pass,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=942100,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/dashboard/report" "id:20030,phase:1,nolog,pass,ctl:ruleRemoveById=942100,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/dashboard/review" "id:20031,phase:1,nolog,pass,ctl:ruleRemoveById=942511"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/dashboard/signature-order" "id:20032,phase:1,nolog,pass,ctl:ruleRemoveById=200002,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=921230,ctl:ruleRemoveById=933210,ctl:ruleRemoveById=941130,ctl:ruleRemoveById=941170,ctl:ruleRemoveById=941330,ctl:ruleRemoveById=941340,ctl:ruleRemoveById=942330,ctl:ruleRemoveById=942370"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/dashboard/users" "id:20033,phase:1,nolog,pass,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=942100,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942510"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/demo-registration" "id:20034,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920450,ctl:ruleRemoveById=931130,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=950100"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/dms" "id:20035,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920340,ctl:ruleRemoveById=920341,ctl:ruleRemoveById=921110,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/export" "id:20036,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920320"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/fidentity" "id:20037,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=200002,ctl:ruleRemoveById=200007,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920320,ctl:ruleRemoveById=931130,ctl:ruleRemoveById=932105,ctl:ruleRemoveById=932110,ctl:ruleRemoveById=932190,ctl:ruleRemoveById=941130,ctl:ruleRemoveById=941170,ctl:ruleRemoveById=942120,ctl:ruleRemoveById=942210,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942460,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/report" "id:20038,phase:1,nolog,pass,ctl:ruleRemoveById=920170,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=942440"
+            - |
+              SecRule REQUEST_URI "@beginsWith /api/v1/token" "id:20039,phase:1,nolog,pass,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=931130"
+            - |
+              SecRule REQUEST_URI "@beginsWith /app/theming" "id:20040,phase:1,nolog,pass,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942511"
+            - |
+              SecRule REQUEST_URI "@beginsWith /assets/" "id:20041,phase:1,nolog,pass,ctl:ruleRemoveById=921230,ctl:ruleRemoveById=942420,ctl:ruleRemoveById=942432"
+            - |
+              SecRule REQUEST_URI "@beginsWith /dashboard" "id:20042,phase:1,nolog,pass,ctl:ruleRemoveById=920230,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920440,ctl:ruleRemoveById=921230,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942200,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942420,ctl:ruleRemoveById=942490"
+            - |
+              SecRule REQUEST_URI "@beginsWith /dashboard/assets/webviewer/" "id:20043,phase:1,nolog,pass,ctl:ruleRemoveById=920440"
+            - |
+              SecRule REQUEST_URI "@beginsWith /static" "id:20044,phase:1,nolog,pass,ctl:ruleRemoveById=942420"
+
+            # Regex-based URI exclusions
+            - |
+              SecRule REQUEST_URI "@rx ^/(?:api/v1/health|.well-known)" "id:20045,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=920300"
+            - |
+              SecRule REQUEST_URI "@rx ^/(?:api/v1/openid-login/callback|simplesign)" "id:20046,phase:1,nolog,pass,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=942200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942340,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942430,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942490"
+            - |
+              SecRule REQUEST_URI "@rx ^/(?:api/v1/|app/)" "id:20047,phase:1,nolog,pass,ctl:ruleRemoveById=942420,ctl:ruleRemoveById=942432"
+            - |
+              SecRule REQUEST_URI "@rx ^/api/v1/(?:dashboard/export/video|app/test-videos/)" "id:20048,phase:1,nolog,pass,ctl:ruleRemoveById=921230"
+            - |
+              SecRule REQUEST_URI "@rx ^/api/v1/(?:e2eFinishProcess|app/process/[A-Za-z0-9-.]{10,60}|custom-data|img)" "id:20049,phase:1,nolog,pass,ctl:ruleRemoveById=920272"
+            - |
+              SecRule REQUEST_URI "@rx ^/api/v1/app/(?:translations|theme|test-videos|webauthn)" "id:20050,phase:1,nolog,pass,ctl:ruleRemoveById=920230,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920300,ctl:ruleRemoveById=920420,ctl:ruleRemoveById=921110,ctl:ruleRemoveById=932200,ctl:ruleRemoveById=942260,ctl:ruleRemoveById=942370,ctl:ruleRemoveById=942431,ctl:ruleRemoveById=942440,ctl:ruleRemoveById=942460,ctl:ruleRemoveById=942511"
+            - |
+              SecRule REQUEST_URI "@rx ^/api/v1/app/process/[A-Za-z0-9-./]{10,200}/process-image" "id:20051,phase:1,nolog,pass,t:lowercase,ctl:ruleRemoveById=921110,ctl:requestBodyAccess=Off"
+            - |
+              SecRule REQUEST_URI "@rx ^/api/v1/e2e.*" "id:20052,phase:1,nolog,pass,ctl:ruleRemoveById=200002,ctl:ruleRemoveById=920272,ctl:ruleRemoveById=920340,ctl:requestBodyAccess=Off"
